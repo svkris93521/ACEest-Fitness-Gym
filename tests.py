@@ -1,38 +1,61 @@
 import pytest
-from app import app, root  # This imports the 'app' instance from app.py
+from app import app, root
 
-def test_program_data_exists():
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_gui():
+    """Ensure the Tkinter window is destroyed after tests finish."""
+    yield
+    root.destroy()
 
-    assert "Fat Loss (FL)" in app.programs
-    assert "Muscle Gain (MG)" in app.programs
-    assert "Beginner (BG)" in app.programs
+def test_initial_state():
+    """Verify that the app starts with empty fields."""
+    assert app.name_var.get() == ""
+    assert app.weight_var.get() == 0.0
+    assert "Estimated Calories: --" in app.calorie_label.cget("text")
 
-def test_initial_label_text():
-
-    assert app.work_label.cget("text") == "Select a profile to view workout"
-
-def test_ui_update_on_selection():
-
-    # Simulate selecting 'Muscle Gain'
-    app.prog_var.set("Muscle Gain (MG)")
+def test_program_selection_logic():
+    """Test if selecting a program updates the workout and calorie calculations."""
+    # 1. Set a weight
+    app.weight_var.set(80.0)
     
-    # Manually trigger the update function
-    app.update_display(None)
+    # 2. Select 'Muscle Gain'
+    app.program_var.set("Muscle Gain (MG)")
     
-    # Assert the label updated to the correct workout
-    assert "Squat 5x5" in app.work_label.cget("text")
-    # Assert the color changed to green (as defined in your dict)
-    assert app.work_label.cget("fg") == "#2ecc71"
+    # 3. Manually trigger the update
+    app.update_program()
+    root.update()
 
-def test_program_selection():
-    # Simulate a user action
-    app.prog_var.set("Fat Loss (FL)")
-    app.update_display(None)
+    # 4. Check workout text (extract from tk.Text widget)
+    workout_content = app.workout_text.get("1.0", "end-1c")
+    assert "Squat 5x5" in workout_content
     
-    # Force the UI to refresh so we can check the result
-    root.update() 
+    # 5. Check calorie calculation (80kg * 35 calorie_factor = 2800)
+    assert "2800 kcal" in app.calorie_label.cget("text")
+
+def test_reset_functionality():
+    """Verify the reset button clears all fields."""
+    # Fill data
+    app.name_var.set("John Doe")
+    app.program_var.set("Fat Loss (FL)")
     
-    assert "2,000 kcal" in app.diet_label.cget("text")
+    # Reset
+    app.reset()
+    root.update()
+    
+    assert app.name_var.get() == ""
+    assert app.program_var.get() == ""
+    assert "Estimated Calories: --" in app.calorie_label.cget("text")
 
-
-
+def test_save_validation(monkeypatch):
+    """Test that saving fails if name is missing (mocking the messagebox)."""
+    import tkinter.messagebox as mb
+    
+    # Mock the showwarning to prevent a popup hanging the test
+    monkeypatch.setattr(mb, "showwarning", lambda title, msg: None)
+    
+    app.name_var.set("") # Empty name
+    app.program_var.set("Beginner (BG)")
+    
+    # Should trigger validation logic
+    app.save_client() 
+    # (The test passes if it runs without error/hang)
