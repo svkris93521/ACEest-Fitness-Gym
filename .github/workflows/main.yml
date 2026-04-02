@@ -42,11 +42,21 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
           restore-keys: ${{ runner.os }}-pip-
 
+#      - name: Install dependencies
+#        run: pip install -r requirements.txt
+
+#      - name: Run Test cases
+#        run: pytest tests.py
+
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb python3-tk  # Required for Tkinter on Linux
+          pip install -r requirements.txt
 
       - name: Run Test cases
-        run: pytest tests.py
+        run: xvfb-run pytest tests.py  # xvfb-run creates the virtual $DISPLAY
+
 
   # ----------------------------------------------------------
   # Job 2: Docker Image Assembly
