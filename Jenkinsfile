@@ -101,13 +101,13 @@ pipeline {
             }
         }
 
-        stage('Install System Dependencies') {
-            steps {
-                echo "==> Installing Tkinter and Xvfb for headless GUI testing..."
+        //stage('Install System Dependencies') {
+        //    steps {
+        //        echo "==> Installing Tkinter and Xvfb for headless GUI testing..."
                 // This replaces the sudo apt-get install step from main.yml
-                sh "sudo apt-get update && sudo apt-get install -y xvfb python3-tk"
-            }
-        }
+        //        sh "sudo apt-get update && sudo apt-get install -y xvfb python3-tk"
+        //    }
+        //}
 
         stage('Install Python Dependencies') {
             steps {
