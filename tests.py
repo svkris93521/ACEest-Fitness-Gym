@@ -2,81 +2,102 @@ import pytest
 import sqlite3
 import os
 import tkinter as tk
-from app import app, root
+from unittest.mock import MagicMock, patch
 
-# Use a temporary database for testing
+# 1. MOCK GUI MODULES BEFORE IMPORTING APP
+# This prevents any real windows or popups from ever appearing
+mock_mb = MagicMock()
+import sys
+sys.modules["tkinter.messagebox"] = mock_mb
+sys.modules["tkinter.filedialog"] = MagicMock()
+
+# Now import the App class
+from app import ACEestApp
+
 TEST_DB = "test_aceest.db"
 
-@pytest.fixture(scope="session", autouse=True)
-def setup_test_db():
-    """Point the app to a test database and cleanup after tests."""
-    # Ensure app uses the test database
-    app.conn = sqlite3.connect(TEST_DB)
-    app.cur = app.conn.cursor()
-    app.init_db()
-    yield
-    app.conn.close()
+@pytest.fixture(scope="session")
+def app_instance():
+    """Create a headless app instance for the test session."""
+    root = tk.Tk()
+    root.withdraw()  # Hide the main window
+    
+    # Force the app to use a test database
+    import app
+    app.DB_NAME = TEST_DB
+    
+    app_instance = ACEestApp(root)
+    yield app_instance, root
+    
+    # Cleanup after all tests
+    app_instance.conn.close()
+    root.destroy()
     if os.path.exists(TEST_DB):
         os.remove(TEST_DB)
-    root.destroy()
 
-def test_db_save_and_calculation(monkeypatch):
-    """Test saving a client and verify the calorie calculation in DB."""
-    import tkinter.messagebox as mb
-    monkeypatch.setattr(mb, "showinfo", lambda title, msg: None)
+def test_db_initialization(app_instance):
+    """Verify tables are created in the test database."""
+    app, _ = app_instance
+    app.cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    tables = [t[0] for t in app.cur.fetchall()]
+    assert "clients" in tables
+    assert "progress" in tables
 
-    app.name.set("Test Athlete")
-    app.weight.set(80.0)
+def test_save_client_logic(app_instance):
+    """Test saving a client and the calorie calculation logic."""
+    app, _ = app_instance
+    
+    app.name.set("Superman")
+    app.weight.set(90.0)
     app.program.set("Muscle Gain (MG)")
     
+    # Trigger the save logic
     app.save_client()
     
-    # Verify DB directly (80kg * 35 factor = 2800)
-    app.cur.execute("SELECT calories FROM clients WHERE name='Test Athlete'")
+    # Verify DB: 90kg * 35 factor = 3150 calories
+    app.cur.execute("SELECT calories FROM clients WHERE name='Superman'")
     result = app.cur.fetchone()
-    assert result[0] == 2800
+    assert result[0] == 3150
 
-def test_load_client_ui(monkeypatch):
-    """Test that loading a client updates the UI Text widget."""
-    import tkinter.messagebox as mb
-    monkeypatch.setattr(mb, "showwarning", lambda title, msg: None)
-
-    app.name.set("Test Athlete")
+def test_load_client_to_ui(app_instance):
+    """Test loading a saved client updates the UI summary."""
+    app, root = app_instance
+    
+    app.name.set("Superman")
     app.load_client()
     root.update()
-
+    
     summary = app.summary.get("1.0", "end")
-    assert "Test Athlete" in summary
-    assert "2800 kcal" in summary
+    assert "Superman" in summary
+    assert "3150 kcal" in summary
 
-def test_save_progress_entry():
-    """Verify progress log adds a row to the progress table."""
-    app.name.set("Test Athlete")
-    app.adherence.set(90)
+def test_progress_logging(app_instance):
+    """Verify that weekly progress is added to the database."""
+    app, _ = app_instance
+    
+    app.name.set("Superman")
+    app.adherence.set(100)
     app.save_progress()
     
-    app.cur.execute("SELECT adherence FROM progress WHERE client_name='Test Athlete'")
-    results = app.cur.fetchall()
-    assert len(results) >= 1
-    assert results[-1][0] == 90
+    app.cur.execute("SELECT adherence FROM progress WHERE client_name='Superman'")
+    row = app.cur.fetchone()
+    assert row[0] == 100
 
-def test_chart_logic_no_crash(monkeypatch):
-    """Ensure the chart function processes data without crashing (Mocking plt.show)."""
-    import matplotlib.pyplot as plt
-    import tkinter.messagebox as mb
+@patch("matplotlib.pyplot.show")
+def test_chart_logic_headless(mock_show, app_instance):
+    """Test chart generation logic without opening a Matplotlib window."""
+    app, _ = app_instance
     
-    # Mock plt.show() so the test doesn't hang waiting for a window to close
-    monkeypatch.setattr(plt, "show", lambda: None)
-    monkeypatch.setattr(mb, "showinfo", lambda title, msg: None)
-
-    app.name.set("Test Athlete")
+    app.name.set("Superman")
     
-    # This should run through the logic of selecting data and creating a plot
+    # If Superman has progress data, this should build the plot and call mock_show
     try:
         app.show_progress_chart()
         success = True
     except Exception as e:
-        print(f"Chart crashed: {e}")
+        print(f"Chart logic failed: {e}")
         success = False
-    
+        
     assert success is True
+    # Verify that the code tried to 'show' a chart
+    assert mock_show.called
