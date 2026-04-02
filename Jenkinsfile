@@ -9,6 +9,13 @@ pipeline {
     }
 
     stages {
+        stage('Install System Dependencies') {
+            steps {
+                echo "==> Installing Tkinter, Xvfb, and PIP..."
+                // Add python3-pip to this list
+                sh "sudo apt-get update && sudo apt-get install -y xvfb python3-tk python3-pip"
+            }
+        }
         // --- STAGE 1: INSTALL & LINT (No Sudo) ---
         stage('Install & Lint') {
             steps {
