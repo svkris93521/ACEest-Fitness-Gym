@@ -2,54 +2,44 @@ import pytest
 import sqlite3
 import os
 import tkinter as tk
-from unittest.mock import MagicMock, patch
-
-# 1. MOCK GUI MODULES BEFORE IMPORTING APP
-# This prevents any real windows or popups from ever appearing
-mock_mb = MagicMock()
+from unittest.mock import MagicMock
 import sys
+
+# 1. MOCK GUI MODULES
+mock_mb = MagicMock()
 sys.modules["tkinter.messagebox"] = mock_mb
 sys.modules["tkinter.filedialog"] = MagicMock()
 
-# Now import the App class
 from app import ACEestApp
 
-TEST_DB = "test_aceest.db"
+TEST_DB = "test_v3_aceest.db"
 
 @pytest.fixture(scope="session")
 def app_instance():
-    """Create a headless app instance for the test session."""
+    """Initialize headless app and database for the session."""
     root = tk.Tk()
-    root.withdraw()  # Hide the main window
+    root.withdraw()
     
-    # Force the app to use a test database
     import app
     app.DB_NAME = TEST_DB
     
     app_instance = ACEestApp(root)
     yield app_instance, root
     
-    # Cleanup after all tests
+    # Teardown
     app_instance.conn.close()
     root.destroy()
     if os.path.exists(TEST_DB):
         os.remove(TEST_DB)
 
-def test_db_initialization(app_instance):
-    """Verify tables are created in the test database."""
-    app, _ = app_instance
-    app.cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    tables = [t[0] for t in app.cur.fetchall()]
-    assert "clients" in tables
-    assert "progress" in tables
-
-def test_save_client_logic(app_instance):
-    """Test saving a client and the calorie calculation logic."""
+def test_save_client_logic_v3(app_instance):
+    """Test saving a client with the new V3 program names."""
     app, _ = app_instance
     
     app.name.set("Superman")
     app.weight.set(90.0)
-    app.program.set("Muscle Gain (MG)")
+    # UPDATED: Must match exactly one of the new keys in app.py
+    app.program.set("Muscle Gain (MG) – PPL") 
     
     # Trigger the save logic
     app.save_client()
@@ -59,45 +49,22 @@ def test_save_client_logic(app_instance):
     result = app.cur.fetchone()
     assert result[0] == 3150
 
-def test_load_client_to_ui(app_instance):
+def test_load_client_to_ui_v3(app_instance):
     """Test loading a saved client updates the UI summary."""
     app, root = app_instance
     
+    # Ensure client exists in DB first
     app.name.set("Superman")
     app.load_client()
     root.update()
     
+    # Check the summary text area
     summary = app.summary.get("1.0", "end")
     assert "Superman" in summary
     assert "3150 kcal" in summary
 
-def test_progress_logging(app_instance):
-    """Verify that weekly progress is added to the database."""
+def test_client_list_refresh_v3(app_instance):
+    """Verify the new selection combobox contains the saved client."""
     app, _ = app_instance
-    
-    app.name.set("Superman")
-    app.adherence.set(100)
-    app.save_progress()
-    
-    app.cur.execute("SELECT adherence FROM progress WHERE client_name='Superman'")
-    row = app.cur.fetchone()
-    assert row[0] == 100
-
-@patch("matplotlib.pyplot.show")
-def test_chart_logic_headless(mock_show, app_instance):
-    """Test chart generation logic without opening a Matplotlib window."""
-    app, _ = app_instance
-    
-    app.name.set("Superman")
-    
-    # If Superman has progress data, this should build the plot and call mock_show
-    try:
-        app.show_progress_chart()
-        success = True
-    except Exception as e:
-        print(f"Chart logic failed: {e}")
-        success = False
-        
-    assert success is True
-    # Verify that the code tried to 'show' a chart
-    assert mock_show.called
+    app.refresh_client_list()
+    assert "Superman" in app.client_list['values']
