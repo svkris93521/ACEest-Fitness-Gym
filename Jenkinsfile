@@ -9,11 +9,11 @@
 //   4. Ensure the Jenkins agent has Python 3.11+ and Docker installed.
 // ============================================================
 
-pipeline {
+'''pipeline {
     agent any
 
     environment {
-        APP_NAME    = 'aceest-fitness'
+        APP_NAME    = 'aceest-fitness-gym'
         PYTHON      = 'python3'
         IMAGE_TAG   = "${env.BUILD_NUMBER}"
     }
@@ -73,6 +73,80 @@ pipeline {
         }
         always {
             echo "Pipeline finished at ${new Date()}."
+        }
+    }
+}'''
+
+// ============================================================
+// ACEest Fitness & Gym – Jenkinsfile (v3.2.4 Optimized)
+// ============================================================
+
+pipeline {
+    agent any
+
+    environment {
+        APP_NAME    = 'aceest-fitness-gym'
+        PYTHON      = 'python3'
+        // Use BUILD_NUMBER for unique tagging
+        IMAGE_TAG   = "${env.BUILD_NUMBER}"
+        // Set the test DB name to match your app's logic
+        DB_NAME     = "test_aceest_jenkins.db"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo "==> Checking out source code..."
+                checkout scm
+            }
+        }
+
+        stage('Install System Dependencies') {
+            steps {
+                echo "==> Installing Tkinter and Xvfb for headless GUI testing..."
+                // This replaces the sudo apt-get install step from main.yml
+                sh "sudo apt-get update && sudo apt-get install -y xvfb python3-tk"
+            }
+        }
+
+        stage('Install Python Dependencies') {
+            steps {
+                echo "==> Installing requirements (fpdf2, matplotlib, etc.)..."
+                sh "${PYTHON} -m pip install --upgrade pip"
+                // Ensure numpy<2.0.0 is handled via requirements.txt or manually here
+                sh "${PYTHON} -m pip install -r requirements.txt"
+            }
+        }
+
+        stage('Test (Headless)') {
+            steps {
+                echo "==> Running Pytest suite with Xvfb virtual display..."
+                // 'xvfb-run' is the magic command from our main.yml
+                sh "xvfb-run ${PYTHON} -m pytest tests.py -v --tb=short"
+            }
+            post {
+                always {
+                    // This archives results so Jenkins can show you the green checkmarks
+                    junit testResults: '**/test-results.xml', allowEmptyResults: true
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                echo "==> Building Docker image: ${APP_NAME}:${IMAGE_TAG}"
+                sh "docker build -t ${APP_NAME}:${IMAGE_TAG} ."
+                sh "docker tag ${APP_NAME}:${IMAGE_TAG} ${APP_NAME}:latest"
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ BUILD SUCCESSFUL – ${APP_NAME}:${IMAGE_TAG} is ready."
+        }
+        failure {
+            echo "❌ BUILD FAILED – Check the Console Output for errors."
         }
     }
 }
