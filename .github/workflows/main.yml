@@ -100,7 +100,7 @@ jobs:
           docker run --rm \
             -e DB_NAME=test_aceest.db \
             aceest-fitness-gym:test \
-            python -m pytest tests/ -v --tb=short
+            python -m pytest pytests/ -v --tb=short
 
       - name: Upload test results (on failure)
         if: failure()
