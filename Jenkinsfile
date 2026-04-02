@@ -11,42 +11,38 @@ pipeline {
     stages {
         stage('Install System Dependencies') {
             steps {
-                echo "==> Installing Tkinter, Xvfb, and PIP..."
-                // Add python3-pip to this list
-                sh "sudo apt-get update && sudo apt-get install -y xvfb python3-tk python3-pip"
+                echo "==> Using credentials to run sudo commands..."
+                // Intercept the 'sudo' prompt by piping the password from credentials
+                withCredentials([string(credentialsId: 'SUDO_PASS', variable: 'PASS')]) {
+                    sh "echo '${PASS}' | sudo -S apt-get update"
+                    sh "echo '${PASS}' | sudo -S apt-get install -y xvfb python3-tk python3-pip"
+                }
             }
         }
-        // --- STAGE 1: INSTALL & LINT (No Sudo) ---
-        stage('Install & Lint') {
+
+        stage('Install Python Dependencies') {
             steps {
-                echo "==> Installing Python Dependencies..."
+                echo "==> Upgrading pip and installing requirements..."
+                sh "${PYTHON} -m ensurepip --default-pip || true"
                 sh "${PYTHON} -m pip install --upgrade pip"
                 sh "${PYTHON} -m pip install -r requirements.txt"
-                
-                // Note: We skip local 'xvfb-run' here because it requires sudo to install
-                // We will rely on the Containerized tests for GUI validation.
             }
         }
 
-        // --- STAGE 2: DOCKER ASSEMBLY ---
-        stage('Docker Image Assembly') {
+        stage('Test (Local Headless)') {
             steps {
-                echo "==> Building Docker image..."
-                // Ensure your Dockerfile has: RUN apt-get install -y xvfb python3-tk
-                sh "docker build -t ${APP_NAME}:latest ."
-            }
-        }
-
-        // --- STAGE 3: AUTOMATED TESTING (The Real Test) ---
-        stage('Automated Testing (Container)') {
-            steps {
-                echo "==> Running Pytest INSIDE the Docker container..."
                 timeout(time: 3, unit: 'MINUTES') {
-                    sh """
-                        docker run --rm --init \
-                        ${APP_NAME}:latest \
-                        xvfb-run python3 -m pytest tests.py
-                    """
+                    sh "xvfb-run ${PYTHON} -m pytest tests.py -v"
+                }
+            }
+        }
+
+        stage('Docker Assembly & Test') {
+            steps {
+                echo "==> Building and verifying container..."
+                sh "docker build -t ${APP_NAME}:latest ."
+                timeout(time: 3, unit: 'MINUTES') {
+                    sh "docker run --rm --init ${APP_NAME}:latest xvfb-run python3 -m pytest tests.py"
                 }
             }
         }
@@ -54,6 +50,7 @@ pipeline {
 
     post {
         success { echo "✅ BUILD SUCCESSFUL" }
-        failure { echo "❌ BUILD FAILED" }
+        failure { echo "❌ BUILD FAILED - Check credentials or sudoers config" }
+        always { sh "rm -f ${DB_NAME} || true" }
     }
 }
