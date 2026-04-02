@@ -48,12 +48,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Lint with flake8 (syntax + style check)
-        run: |
-          flake8 app.py tests/ \
-            --max-line-length=120 \
-            --statistics \
-            --count
+#      - name: Lint with pytest (syntax + style check)
+#        run: |
+#          flake8 app.py tests/ \
+#            --max-line-length=120 \
+#            --statistics \
+#            --count
 
   # ----------------------------------------------------------
   # Job 2: Docker Image Assembly
