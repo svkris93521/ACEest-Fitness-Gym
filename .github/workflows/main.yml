@@ -99,11 +99,11 @@ jobs:
         run: docker build -t aceest-fitness-gym:test .
 
       - name: Run Pytest suite inside Docker container with Xvfb
-        timeout-minutes: 5
+        timeout-minutes: 3
         run: |
-          docker run --rm \
+          docker run --rm --init\
             aceest-fitness-gym:test \
-            xvfb-run python -m pytest tests.py -v --tb=short
+            xvfb-run python -m pytest tests.py
 
       - name: Upload test results (on failure)
         if: failure()
