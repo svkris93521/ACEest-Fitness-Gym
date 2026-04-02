@@ -98,12 +98,11 @@ jobs:
       - name: Build Docker image for testing
         run: docker build -t aceest-fitness-gym:test .
 
-      - name: Run Pytest suite inside Docker container
+      - name: Run Pytest suite inside Docker container with Xvfb
         run: |
           docker run --rm \
-            -e DB_NAME=test_aceest.db \
             aceest-fitness-gym:test \
-            python -m pytest pytests/ -v --tb=short
+            xvfb-run python -m pytest tests.py -v --tb=short
 
       - name: Upload test results (on failure)
         if: failure()
