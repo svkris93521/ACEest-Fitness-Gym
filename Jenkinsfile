@@ -1,85 +1,7 @@
-// ============================================================
-// ACEest Fitness & Gym – Jenkinsfile
-// Declarative Pipeline for the Jenkins BUILD stage.
-//
-// Setup:
-//   1. Install Jenkins (https://www.jenkins.io/doc/book/installing/)
-//   2. Create a new Pipeline project.
-//   3. Set "Pipeline script from SCM" → Git → your GitHub repo URL.
-//   4. Ensure the Jenkins agent has Python 3.11+ and Docker installed.
-// ============================================================
-
-'''pipeline {
-    agent any
-
-    environment {
-        APP_NAME    = 'aceest-fitness-gym'
-        PYTHON      = 'python3'
-        IMAGE_TAG   = "${env.BUILD_NUMBER}"
-    }
-
-    stages {
-
-        stage('Checkout') {
-            steps {
-                echo "==> Checking out source code from GitHub..."
-                checkout scm
-            }
-        }
-
-        stage('Install Dependencies') {
-            steps {
-                echo "==> Installing Python dependencies..."
-                sh "${PYTHON} -m pip install --upgrade pip"
-                sh "${PYTHON} -m pip install -r requirements.txt"
-            }
-        }
-
-        stage('Lint') {
-            steps {
-                echo "==> Running flake8 linter..."
-                sh "${PYTHON} -m flake8 app.py tests/ --max-line-length=120 --statistics"
-            }
-        }
-
-        stage('Test') {
-            steps {
-                echo "==> Running Pytest suite..."
-                sh "${PYTHON} -m pytest tests/ -v --tb=short"
-            }
-            post {
-                always {
-                    echo "Tests completed."
-                }
-            }
-        }
-
-        stage('Docker Build') {
-            steps {
-                echo "==> Building Docker image: ${APP_NAME}:${IMAGE_TAG}"
-                sh "docker build -t ${APP_NAME}:${IMAGE_TAG} ."
-                sh "docker tag ${APP_NAME}:${IMAGE_TAG} ${APP_NAME}:latest"
-            }
-        }
-
-    }
-
-    post {
-        success {
-            echo "✅ BUILD SUCCESSFUL – ACEest image ${APP_NAME}:${IMAGE_TAG} is ready."
-        }
-        failure {
-            echo "❌ BUILD FAILED – Review the stage logs above for details."
-        }
-        always {
-            echo "Pipeline finished at ${new Date()}."
-        }
-    }
-}'''
-
-// ============================================================
-// ACEest Fitness & Gym – Jenkinsfile (v3.2.4 Optimized)
-// ============================================================
+// =========================================================================================
+// ACEest Fitness & Gym – Jenkins CI/CD Pipeline
+// Synchronized with main.yml (v3.2.4)
+// =========================================================================================
 
 pipeline {
     agent any
@@ -87,66 +9,68 @@ pipeline {
     environment {
         APP_NAME    = 'aceest-fitness-gym'
         PYTHON      = 'python3'
-        // Use BUILD_NUMBER for unique tagging
+        // Unique tag using Jenkins build number
         IMAGE_TAG   = "${env.BUILD_NUMBER}"
-        // Set the test DB name to match your app's logic
         DB_NAME     = "test_aceest_jenkins.db"
     }
 
     stages {
-        stage('Checkout') {
+        // --- STAGE 1: BUILD & LINT (Local Runner) ---
+        stage('Build & Lint') {
             steps {
-                echo "==> Checking out source code..."
-                checkout scm
-            }
-        }
-
-        //stage('Install System Dependencies') {
-        //    steps {
-        //        echo "==> Installing Tkinter and Xvfb for headless GUI testing..."
-                // This replaces the sudo apt-get install step from main.yml
-        //        sh "sudo apt-get update && sudo apt-get install -y xvfb python3-tk"
-        //    }
-        //}
-
-        stage('Install Python Dependencies') {
-            steps {
-                echo "==> Installing requirements (fpdf2, matplotlib, etc.)..."
+                echo "==> Installing System Dependencies (Tkinter/Xvfb)..."
+                sh "sudo apt-get update && sudo apt-get install -y xvfb python3-tk"
+                
+                echo "==> Installing Python Dependencies..."
                 sh "${PYTHON} -m pip install --upgrade pip"
-                // Ensure numpy<2.0.0 is handled via requirements.txt or manually here
                 sh "${PYTHON} -m pip install -r requirements.txt"
-            }
-        }
-
-        stage('Test (Headless)') {
-            steps {
-                echo "==> Running Pytest suite with Xvfb virtual display..."
-                // 'xvfb-run' is the magic command from our main.yml
-                sh "xvfb-run ${PYTHON} -m pytest tests.py -v --tb=short"
-            }
-            post {
-                always {
-                    // This archives results so Jenkins can show you the green checkmarks
-                    junit testResults: '**/test-results.xml', allowEmptyResults: true
+                
+                echo "==> Running Local Tests (Headless)..."
+                // timeout(time: 3, unit: 'MINUTES') matches 'timeout-minutes: 3'
+                timeout(time: 3, unit: 'MINUTES') {
+                    sh "xvfb-run ${PYTHON} -m pytest tests.py -v"
                 }
             }
         }
 
-        stage('Docker Build') {
+        // --- STAGE 2: DOCKER ASSEMBLY ---
+        stage('Docker Image Assembly') {
             steps {
                 echo "==> Building Docker image: ${APP_NAME}:${IMAGE_TAG}"
-                sh "docker build -t ${APP_NAME}:${IMAGE_TAG} ."
-                sh "docker tag ${APP_NAME}:${IMAGE_TAG} ${APP_NAME}:latest"
+                sh "docker build -t ${APP_NAME}:${IMAGE_TAG} -t ${APP_NAME}:latest ."
+                
+                echo "==> Verifying Docker image..."
+                sh "docker images ${APP_NAME}"
+            }
+        }
+
+        // --- STAGE 3: AUTOMATED TESTING (Containerized) ---
+        stage('Automated Testing (Container)') {
+            steps {
+                echo "==> Running Pytest INSIDE the Docker container..."
+                // Using --init as per your main.yml to handle signal forwarding
+                timeout(time: 3, unit: 'MINUTES') {
+                    sh """
+                        docker run --rm --init \
+                        ${APP_NAME}:latest \
+                        xvfb-run python3 -m pytest tests.py
+                    """
+                }
             }
         }
     }
 
     post {
         success {
-            echo "✅ BUILD SUCCESSFUL – ${APP_NAME}:${IMAGE_TAG} is ready."
+            echo "✅ CI/CD PIPELINE COMPLETE – ${APP_NAME}:${IMAGE_TAG} is stable."
         }
         failure {
-            echo "❌ BUILD FAILED – Check the Console Output for errors."
+            echo "❌ PIPELINE FAILED – Check stage logs for details."
+            // Archive results if they exist (JUnit plugin required in Jenkins)
+            archiveArtifacts artifacts: '**/results.xml', allowEmptyArchive: true
+        }
+        always {
+            echo "Pipeline finished at ${new Date()}"
         }
     }
 }
