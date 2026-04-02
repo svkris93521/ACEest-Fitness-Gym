@@ -2,127 +2,123 @@ import pytest
 import sqlite3
 import os
 import tkinter as tk
+from tkinter import ttk
 from unittest.mock import MagicMock, patch
 import sys
 
-# 1. MOCK EXTERNAL LIBRARIES & GUI MODULES BEFORE IMPORTING APP
-# This prevents the "no display" and "missing module" errors in CI/CD
+# 1. MOCK EXTERNAL LIBRARIES & GUI DIALOGS BEFORE IMPORT
+# This prevents "no display" and "missing module" errors in CI/CD
 mock_mb = MagicMock()
 sys.modules["tkinter.messagebox"] = mock_mb
 sys.modules["tkinter.filedialog"] = MagicMock()
 sys.modules["tkinter.simpledialog"] = MagicMock()
-sys.modules["fpdf"] = MagicMock()
+sys.modules["fpdf2"] = MagicMock()
 
-# 2. MOCK GRAB_SET INTERNALLY
-# This prevents "TclError: grab failed" in headless (invisible) environments
+# 2. PREVENT HEADLESS TCL ERRORS BY MOCKING BLOCKING GUI METHODS
 tk.Toplevel.grab_set = MagicMock()
 tk.Toplevel.grab_release = MagicMock()
 
-# Now import the App class from your app.py
-from app import ACEestApp
+# Mock Treeview.heading globally to prevent Tcl synchronization crashes
+original_heading = ttk.Treeview.heading
+ttk.Treeview.heading = MagicMock()
 
-TEST_DB = "test_aceest_v31.db"
+# Import the App and the DB init function
+from app import ACEestApp, init_db
+import app as app_module
+
+TEST_DB = "test_aceest_v32_final.db"
 
 @pytest.fixture(scope="session")
 def app_instance():
-    """Initialize headless app, bypass login, and setup database."""
-    # Create the root window but keep it hidden
+    """Initialize headless app, run DB init, and bypass login."""
+    app_module.DB_NAME = TEST_DB
+    init_db()
+
     root = tk.Tk()
-    root.withdraw() 
+    root.withdraw() # Hide the main window
     
-    # Force the app to use a temporary test database
-    import app
-    app.DB_NAME = TEST_DB
-    
-    # Initialize the app (this triggers show_login_window)
     app_instance = ACEestApp(root)
     
-    # 3. BYPASS THE LOGIN WINDOW FOR TESTING
-    # We manually set the admin credentials and trigger the login function
+    # LOGIN BYPASS: Fill vars and call the login method
     app_instance.username_var.set("admin")
     app_instance.password_var.set("admin")
-    app_instance.login_user() 
+    app_instance.login() 
     
     yield app_instance, root
     
-    # Teardown: Close DB and destroy the UI
+    # Teardown
     app_instance.conn.close()
     root.destroy()
+    # Restore original heading after tests
+    ttk.Treeview.heading = original_heading
     if os.path.exists(TEST_DB):
         os.remove(TEST_DB)
 
 # ---------- TEST CASES ----------
 
-def test_user_authentication_and_role(app_instance):
-    """Verify that the bypass login worked and assigned the Admin role."""
+def test_admin_login_and_dashboard_load(app_instance):
+    """Verify that the login flow correctly initializes the dashboard."""
     app, _ = app_instance
     assert app.current_user == "admin"
-    assert app.user_role == "Admin"
+    assert app.current_role == "Admin"
 
-def test_v31_database_schema(app_instance):
-    """Verify that the new 'users' and 'clients' tables exist."""
+def test_database_schema_v32(app_instance):
+    """Verify all relational tables are correctly initialized in the test DB."""
     app, _ = app_instance
     app.cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
     tables = [row[0] for row in app.cur.fetchall()]
     
-    assert "users" in tables
-    assert "clients" in tables
-    assert "workouts" in tables
-    assert "metrics" in tables
+    expected_tables = ["users", "clients", "workouts", "exercises", "metrics"]
+    for table in expected_tables:
+        assert table in tables
 
-def test_client_save_and_calorie_calc(app_instance):
-    """Test saving a client and verify the updated v3.1 calorie factors."""
+def test_add_client_logic(app_instance, monkeypatch):
+    """Test the Add Client logic using mocked simpledialog."""
+    app, _ = app_instance
+    # We must mock 'app.simpledialog' because that's where the app is looking
+    import app as app_module
+    
+    # Mock the popup to return "Iron Man"
+    monkeypatch.setattr(app_module.simpledialog, "askstring", lambda title, prompt: "Iron Man")
+    
+    app.add_save_client()
+    
+    # Verify the client was added to the database
+    app.cur.execute("SELECT membership_status FROM clients WHERE name='Iron Man'")
+    res = app.cur.fetchone()
+    assert res is not None
+    assert res[0] == "Active"
+    assert "Iron Man" in app.client_list['values']
+
+def test_ai_program_generation(app_instance):
+    """Verify the AI generator assigns a program string to the current client."""
     app, _ = app_instance
     
-    app.name.set("TestAthlete")
-    app.weight.set(75.0)
-    # Using the new v3.1 program string
-    app.program.set("Fat Loss (FL) – 5 day") 
+    # Ensure "Iron Man" exists in DB to prevent NoneType errors in refresh_summary
+    app.cur.execute("INSERT OR IGNORE INTO clients (name, membership_status) VALUES (?,?)", 
+                   ("Iron Man", "Active"))
+    app.conn.commit()
     
-    app.save_client()
+    app.current_client = "Iron Man"
+    app.generate_program()
     
-    # Verify calculation: 75kg * 24 factor = 1800 calories
-    app.cur.execute("SELECT calories FROM clients WHERE name='TestAthlete'")
-    res = app.cur.fetchone()
-    assert res[0] == 1800
-
-def test_client_selection_sync(app_instance):
-    """Ensure the 'Select Client' dropdown correctly reflects the database."""
-    app, root = app_instance
-    
-    # Trigger a refresh of the list
-    app.refresh_client_list()
-    
-    # The Combobox values should now contain our saved athlete
-    assert "TestAthlete" in app.client_list['values']
-
-def test_on_client_selected_logic(app_instance):
-    """Simulate choosing a client from the dropdown and verifying UI updates."""
-    app, root = app_instance
-    
-    # Set the list to our athlete and trigger the event
-    app.client_list.set("TestAthlete")
-    app.on_client_selected(None)
-    root.update()
-    
-    # UI variables should now be populated with the athlete's data
-    assert app.name.get() == "TestAthlete"
-    assert app.weight.get() == 75.0
+    # Verify a program was updated in the DB
+    app.cur.execute("SELECT program FROM clients WHERE name='Iron Man'")
+    program = app.cur.fetchone()
+    assert program is not None
+    assert program[0] is not None
 
 @patch("matplotlib.pyplot.show")
-def test_headless_chart_rendering(mock_show, app_instance):
+def test_charts_no_crash(mock_show, app_instance):
+    """Ensure charting logic runs without crashing the Tcl interpreter."""
     app, _ = app_instance
-    app.name.set("TestAthlete")
+    app.current_client = "Iron Man"
     
     try:
-        # UPDATE THIS LINE to match your actual function name in app.py
-        app.view_progress() 
+        app.plot_charts()
         success = True
-    except AttributeError:
-        # If it doesn't exist yet, we can skip it for now
-        pytest.skip("Chart feature not yet implemented in app.py")
     except Exception as e:
+        print(f"Chart error: {e}")
         success = False
         
     assert success is True
-
