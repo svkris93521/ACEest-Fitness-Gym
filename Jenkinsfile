@@ -9,13 +9,24 @@ pipeline {
     }
 
     stages {
+        //stage('Install System Dependencies') {
+        //    steps {
+        //        echo "==> Using credentials to run sudo commands..."
+         //       // Intercept the 'sudo' prompt by piping the password from credentials
+         //       withCredentials([string(credentialsId: 'SUDO_PASS', variable: 'PASS')]) {
+         //           sh "echo '${PASS}' | sudo -S apt-get update"
+         //           sh "echo '${PASS}' | sudo -S apt-get install -y xvfb python3-tk python3-pip"
+         //       }
+         //   }
+        //}
+
         stage('Install System Dependencies') {
             steps {
                 echo "==> Using credentials to run sudo commands..."
-                // Intercept the 'sudo' prompt by piping the password from credentials
                 withCredentials([string(credentialsId: 'SUDO_PASS', variable: 'PASS')]) {
-                    sh "echo '${PASS}' | sudo -S apt-get update"
-                    sh "echo '${PASS}' | sudo -S apt-get install -y xvfb python3-tk python3-pip"
+                    // Use single quotes here to let the shell handle $PASS
+                    sh 'echo "$PASS" | sudo -S apt-get update'
+                    sh 'echo "$PASS" | sudo -S apt-get install -y xvfb python3-tk python3-pip'
                 }
             }
         }
