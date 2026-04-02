@@ -1,5 +1,5 @@
-""" import pytest
-from app import app  # This imports the 'app' instance from app.py
+import pytest
+from app import app, root  # This imports the 'app' instance from app.py
 
 def test_program_data_exists():
 
@@ -22,10 +22,7 @@ def test_ui_update_on_selection():
     # Assert the label updated to the correct workout
     assert "Squat 5x5" in app.work_label.cget("text")
     # Assert the color changed to green (as defined in your dict)
-    assert app.work_label.cget("fg") == "#2ecc71" """
-
-import pytest
-from app import app, root
+    assert app.work_label.cget("fg") == "#2ecc71"
 
 def test_program_selection():
     # Simulate a user action
@@ -36,4 +33,6 @@ def test_program_selection():
     root.update() 
     
     assert "2,000 kcal" in app.diet_label.cget("text")
+
+
 
