@@ -1,65 +1,59 @@
-This README.md is designed to showcase your project as a professional, CI/CD-integrated desktop application. It highlights the advanced features of v3.2.4, including the relational database, AI logic, and the stable testing pipeline we built. 
-🏋️ ACEest Fitness & Performance Suite (v3.2.4)
-ACEest is a professional-grade desktop application built with Python and Tkinter, designed for gym owners and coaches to manage client profiles, track performance metrics, and generate AI-driven workout programs.
+# ACEest Fitness & Gym
 
+ACEest Fitness & Gym is a Python-based application designed for gym management. This repository includes a complete CI/CD pipeline configuration using Jenkins and Docker.
 
-**🚀 Key Features**
-Secure Authentication: Role-based access control (Admin/Staff) with a secure login system.
-Relational Database: Powered by SQLite, managing 5+ linked tables for Clients, Workouts, Exercises, and Body Metrics.
-AI Program Generator: Automatically generates customized training splits based on client goals (Fat Loss, Muscle Gain, etc.).
-Visual Analytics: Integrated Matplotlib charts for tracking weekly adherence and progress trends.
-Automated Reports: One-click PDF Report Generation using fpdf2 for professional client summaries.
-Membership Management: Track membership status and expiry dates with automated status updates.
+## Project Structure
 
-**🛠️ Tech Stack**
-GUI: Tkinter (Custom Dark Theme)
-Database: SQLite3
-Visualization: Matplotlib
-Reports: fpdf2
-Testing: Pytest (100% Headless/CI-Ready)
-DevOps: GitHub Actions & Docker
+- `app.py`: Main application logic.
+- `requirements.txt`: Python dependencies.
+- `tests/`: Directory containing the Pytest suite.
+- `Jenkinsfile`: Declarative pipeline for automated Build, Lint, Test, and Dockerization.
+- `Dockerfile`: Instructions for containerizing the application.
 
-**📦 Installation & Setup**
-Clone the Repository:
-bash
-git clone https://github.com
-cd ACEest-Fitness-Gym
-Use code with caution.
+## Prerequisites
 
-**Install Dependencies:**
-Note: We use numpy<2.0.0 to ensure compatibility with Matplotlib.
-bash
+Before running the pipeline or the application, ensure you have the following installed:
+- **Python 3.11+**
+- **Docker**
+- **Jenkins** (with Pipeline and Docker plugins)
+
+## CI/CD Pipeline Stages
+
+The included `Jenkinsfile` automates the following workflow:
+
+1.  **Checkout**: Pulls the latest source code from the GitHub repository.
+2.  **Install Dependencies**: Upgrades `pip` and installs requirements from `requirements.txt`.
+3.  **Lint**: Uses `flake8` to check for PEP8 compliance and code quality (max line length 120).
+4.  **Test**: Executes the test suite using `pytest` with verbose output.
+5.  **Docker Build**: Builds a new Docker image tagged with the Jenkins build number and updates the `latest` tag.
+
+## Local Setup
+
+To run the application locally:
+
+```bash
+# Clone the repository
+git clone https://github.com/your-username/aceest-fitness.git
+cd aceest-fitness
+
+# Install dependencies
 pip install -r requirements.txt
-Use code with caution.
 
-**Run the Application:**
-bash
-python3 app.py
-Use code with caution.
+# Run the application
+python app.py
 
-Default Credentials: admin / admin
-🧪 Automated Testing
-This project features a stabilized headless test suite designed to run in CI/CD environments (GitHub Actions/Docker) without needing a physical monitor.
-To run tests locally:
-bash
-pytest tests.py
-Use code with caution.
+# Run tests
+pytest tests/
+```
 
-**What the tests cover:**
-Database Integrity: Verification of all relational tables and CRUD operations.
-Logic Validation: Calorie calculations and AI program mapping.
-Mocked UI: Automated testing of messagebox, simpledialog, and filedialog without manual interaction.
+## Docker Usage
 
-**🐳 Docker Support**
-You can run the entire suite in a containerized environment:
-bash
-docker build -t aceest-fitness-gym .
-docker run -it aceest-fitness-gym
-Use code with caution.
+To build and run the container manually:
 
-**📈 Roadmap**
-SQLite Database Integration (v2.x)
-Multi-table Relational Schema (v3.0)
-Secure RBAC Login System (v3.1)
-AI Program Generator & PDF Support (v3.2)
-Cloud Database Sync (v4.0)
+```bash
+docker build -t aceest-fitness:latest .
+docker run -p 8080:8080 aceest-fitness:latest
+```
+
+---
+*Developed as part of the DevOps course - BITS Pilani.*
