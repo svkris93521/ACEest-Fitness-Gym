@@ -12,12 +12,9 @@ name: ACEest Fitness & Gym CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - main
-      - develop
+    branches: [ "main" ]
   pull_request:
-    branches:
-      - main
+    branches: [ "main" ]
 
 jobs:
 
@@ -48,12 +45,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-#      - name: Lint with pytest (syntax + style check)
-#        run: |
-#          flake8 app.py tests/ \
-#            --max-line-length=120 \
-#            --statistics \
-#            --count
+      - name: Run Test cases
+        run: pytest tests.py
 
   # ----------------------------------------------------------
   # Job 2: Docker Image Assembly
