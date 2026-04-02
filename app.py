@@ -77,7 +77,9 @@ class ACEestApp:
         self.work_label.config(text=data["workout"], fg=data["color"])
         self.diet_label.config(text=data["diet"])
 
+root = tk.Tk()
+app = ACEestApp(root)
+
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = ACEestApp(root)
+    # ONLY the mainloop stays inside here
     root.mainloop()
