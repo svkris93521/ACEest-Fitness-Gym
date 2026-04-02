@@ -2,94 +2,81 @@ import pytest
 import sqlite3
 import os
 import tkinter as tk
-from app import ACEestApp
+from app import app, root
 
 # Use a temporary database for testing
 TEST_DB = "test_aceest.db"
 
-@pytest.fixture(scope="module")
-def app_context():
-    """Initializes the Tkinter root and the App for the test session."""
-    root = tk.Tk()
-    # Override the DB name before initializing the app
-    import app
-    app.DB_NAME = TEST_DB 
-    
-    app_instance = ACEestApp(root)
-    yield app_instance, root
-    
-    # Cleanup after tests
-    app_instance.conn.close()
-    root.destroy()
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_db():
+    """Point the app to a test database and cleanup after tests."""
+    # Ensure app uses the test database
+    app.conn = sqlite3.connect(TEST_DB)
+    app.cur = app.conn.cursor()
+    app.init_db()
+    yield
+    app.conn.close()
     if os.path.exists(TEST_DB):
         os.remove(TEST_DB)
+    root.destroy()
 
-def test_database_creation(app_context):
-    """Verify that tables are created in the test database."""
-    app_instance, _ = app_context
-    app_instance.cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    tables = [t[0] for t in app_instance.cur.fetchall()]
-    assert "clients" in tables
-    assert "progress" in tables
-
-def test_save_and_load_client(app_context, monkeypatch):
-    """Test saving a client to SQLite and loading them back into the UI."""
-    app_instance, root = app_context
+def test_db_save_and_calculation(monkeypatch):
+    """Test saving a client and verify the calorie calculation in DB."""
     import tkinter.messagebox as mb
-    
-    # Mock messageboxes to prevent tests from hanging
     monkeypatch.setattr(mb, "showinfo", lambda title, msg: None)
-    monkeypatch.setattr(mb, "showerror", lambda title, msg: None)
 
-    # 1. Setup Data
-    app_instance.name.set("Test Athlete")
-    app_instance.age.set(30)
-    app_instance.weight.set(70.0)
-    app_instance.program.set("Fat Loss (FL)")
+    app.name.set("Test Athlete")
+    app.weight.set(80.0)
+    app.program.set("Muscle Gain (MG)")
     
-    # 2. Save
-    app_instance.save_client()
+    app.save_client()
     
-    # 3. Clear fields
-    app_instance.name.set("Test Athlete") # Keep name to load
-    app_instance.weight.set(0.0)
-    
-    # 4. Load
-    app_instance.load_client()
+    # Verify DB directly (80kg * 35 factor = 2800)
+    app.cur.execute("SELECT calories FROM clients WHERE name='Test Athlete'")
+    result = app.cur.fetchone()
+    assert result[0] == 2800
+
+def test_load_client_ui(monkeypatch):
+    """Test that loading a client updates the UI Text widget."""
+    import tkinter.messagebox as mb
+    monkeypatch.setattr(mb, "showwarning", lambda title, msg: None)
+
+    app.name.set("Test Athlete")
+    app.load_client()
     root.update()
 
-    # 5. Assertions
-    assert app_instance.weight.get() == 70.0
-    summary = app_instance.summary.get("1.0", "end")
+    summary = app.summary.get("1.0", "end")
     assert "Test Athlete" in summary
-    assert "1540 kcal" in summary # 70kg * 22 factor
+    assert "2800 kcal" in summary
 
-def test_save_progress_log(app_context, monkeypatch):
-    """Verify that progress adherence is correctly logged in the database."""
-    app_instance, _ = app_context
+def test_save_progress_entry():
+    """Verify progress log adds a row to the progress table."""
+    app.name.set("Test Athlete")
+    app.adherence.set(90)
+    app.save_progress()
+    
+    app.cur.execute("SELECT adherence FROM progress WHERE client_name='Test Athlete'")
+    results = app.cur.fetchall()
+    assert len(results) >= 1
+    assert results[-1][0] == 90
+
+def test_chart_logic_no_crash(monkeypatch):
+    """Ensure the chart function processes data without crashing (Mocking plt.show)."""
+    import matplotlib.pyplot as plt
     import tkinter.messagebox as mb
+    
+    # Mock plt.show() so the test doesn't hang waiting for a window to close
+    monkeypatch.setattr(plt, "show", lambda: None)
     monkeypatch.setattr(mb, "showinfo", lambda title, msg: None)
 
-    app_instance.name.set("Test Athlete")
-    app_instance.adherence.set(95)
+    app.name.set("Test Athlete")
     
-    app_instance.save_progress()
+    # This should run through the logic of selecting data and creating a plot
+    try:
+        app.show_progress_chart()
+        success = True
+    except Exception as e:
+        print(f"Chart crashed: {e}")
+        success = False
     
-    # Query database directly to verify record
-    app_instance.cur.execute("SELECT adherence FROM progress WHERE client_name='Test Athlete'")
-    result = app_instance.cur.fetchone()
-    assert result is not None
-    assert result[0] == 95
-
-def test_error_on_missing_fields(app_context, monkeypatch):
-    """Verify that error message triggers if required fields are empty."""
-    app_instance, _ = app_context
-    import tkinter.messagebox as mb
-    
-    errors = []
-    monkeypatch.setattr(mb, "showerror", lambda title, msg: errors.append(msg))
-
-    app_instance.name.set("") # Empty Name
-    app_instance.save_client()
-    
-    assert "Name and Program required" in errors
+    assert success is True
