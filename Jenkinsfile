@@ -1,18 +1,74 @@
+// =========================================================================================
+// ACEest Fitness & Gym – Jenkins CI/CD Pipeline
+// Synchronized with main.yml (v3.2.4)
+// =========================================================================================
+
 pipeline {
     agent any
+
+    environment {
+        APP_NAME    = 'aceest-fitness-gym'
+        PYTHON      = 'python3'
+        // Unique tag using Jenkins build number, similar to github.sha
+        IMAGE_TAG   = "${env.BUILD_NUMBER}"
+        DB_NAME     = "test_aceest_jenkins.db"
+    }
+
     stages {
-        stage('Docker Build') {
+        // --- STAGE 1: BUILD & LINT (Replicating main.yml Job 1) ---
+        stage('Build & Lint') {
             steps {
-                // The Dockerfile handles all the heavy lifting
-                sh "docker build -t aceest-app:latest ."
+                echo "==> Preparing System and Dependencies..."
+                // Note: Requires one-time setup: sudo usermod -aG docker jenkins
+                sh "${PYTHON} -m pip install --upgrade pip"
+                sh "${PYTHON} -m pip install -r requirements.txt"
+                
+                echo "==> Running Local Tests (Headless)..."
+                // timeout(time: 3, unit: 'MINUTES') matches 'timeout-minutes: 3'
+                timeout(time: 3, unit: 'MINUTES') {
+                    // xvfb-run allows Tkinter to 'render' without a physical screen
+                    sh "xvfb-run ${PYTHON} -m pytest tests.py -v"
+                }
             }
         }
-        stage('Automated Test') {
+
+        // --- STAGE 2: DOCKER ASSEMBLY (Replicating main.yml Job 2) ---
+        stage('Docker Image Assembly') {
             steps {
-                // Run EVERYTHING inside the container
-                // Containers are isolated, so they don't need host sudo
-                sh "docker run --rm aceest-app:latest xvfb-run pytest tests.py"
+                echo "==> Building Docker image: ${APP_NAME}:${IMAGE_TAG}"
+                sh "docker build -t ${APP_NAME}:${IMAGE_TAG} -t ${APP_NAME}:latest ."
+                
+                echo "==> Verifying Docker image..."
+                sh "docker images ${APP_NAME}"
             }
+        }
+
+        // --- STAGE 3: AUTOMATED TESTING (Containerized) (Replicating main.yml Job 3) ---
+        stage('Automated Testing (Container)') {
+            steps {
+                echo "==> Running Pytest INSIDE the stable Docker container..."
+                // --init ensures zombie processes (like Xvfb) are cleaned up correctly
+                timeout(time: 3, unit: 'MINUTES') {
+                    sh """
+                        docker run --rm --init \
+                        ${APP_NAME}:latest \
+                        xvfb-run python3 -m pytest tests.py
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ PIPELINE SUCCESSFUL – ${APP_NAME}:${IMAGE_TAG} is stable."
+        }
+        failure {
+            echo "❌ PIPELINE FAILED – Review Console Output for stage errors."
+        }
+        always {
+            // Clean up the local test database file
+            sh "rm -f ${DB_NAME} || true"
         }
     }
 }
