@@ -58,7 +58,7 @@ pipeline {
                         -e DISPLAY=:99 \
                         ${APP_NAME}:latest \
                         bash -c "apt-get update && apt-get install -xvfb -y && xvfb-run python3 -m pytest tests.py"
-                    """ [cite: 10]
+                    """
                 }
             }
         }
@@ -66,13 +66,13 @@ pipeline {
 
     post {
         success {
-            echo "✅ PIPELINE SUCCESSFUL – ${APP_NAME}:${IMAGE_TAG} is ready for deployment." [cite: 12]
+            echo "✅ PIPELINE SUCCESSFUL – ${APP_NAME}:${IMAGE_TAG} is ready for deployment."
         }
         failure {
-            echo "❌ PIPELINE FAILED – Check the Xvfb or Tkinter logs in Console Output." [cite: 13]
+            echo "❌ PIPELINE FAILED – Check the Xvfb or Tkinter logs in Console Output."
         }
         always {
-            sh "rm -f ${DB_NAME} || true" [cite: 13]
+            sh "rm -f ${DB_NAME} || true"
         }
     }
 }
