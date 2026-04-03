@@ -51,13 +51,10 @@ pipeline {
             steps {
                 echo "==> Running Pytest INSIDE the container using Xvfb..."
                 timeout(time: 5, unit: 'MINUTES') {
-                    // 1. We pass the environment variable to tell Python we are headless
-                    // 2. We use 'xvfb-run' to wrap the test execution
                     sh """
                         docker run --rm --init \
-                        -e DISPLAY=:99 \
                         ${APP_NAME}:latest \
-                        ${PYTHON} -m pytest tests.py
+                        bash -c "apt-get update && apt-get install -y xvfb && xvfb-run python3 -m pytest tests.py"
                     """
                 }
             }
