@@ -26,10 +26,10 @@ pipeline {
                 sh "${PYTHON} -m pip install --user --upgrade pip"
                 sh "${PYTHON} -m pip install --user -r requirements.txt"
         
-                echo "==> Running Local Tests (Headless)..."
+                '''echo "==> Running Local Tests (Headless)..."
                 timeout(time: 3, unit: 'MINUTES') {
                     sh "xvfb-run ${PYTHON} -m pytest tests.py -v"
-                }
+                }'''
             }
     }
 
