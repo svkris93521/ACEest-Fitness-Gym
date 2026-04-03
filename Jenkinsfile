@@ -28,10 +28,10 @@ pipeline {
         
                 '''echo "==> Running Local Tests (Headless)..."
                 timeout(time: 3, unit: 'MINUTES') {
-                    sh "xvfb-run ${PYTHON} -m pytest tests.py -v"
+                    sh "xvfb-run pytest tests.py"
                 }'''
             }
-    }
+        }
 
         // --- STAGE 2: DOCKER ASSEMBLY (Replicating main.yml Job 2) ---
         stage('Docker Image Assembly') {
