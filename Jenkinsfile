@@ -57,7 +57,7 @@ pipeline {
                         docker run --rm --init \
                         -e DISPLAY=:99 \
                         ${APP_NAME}:latest \
-                        bash -c "apt-get update && apt-get install -xvfb -y && xvfb-run python3 -m pytest tests.py"
+                        ${PYTHON} -m pytest tests.py"
                     """
                 }
             }
