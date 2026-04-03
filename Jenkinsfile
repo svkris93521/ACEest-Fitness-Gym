@@ -58,7 +58,7 @@ pipeline {
                     """
                     sh "docker stop ${APP_NAME} || true"
                     sh "docker rm ${APP_NAME} || true"
-                    sh "docker run -d --name ${APP_NAME} -p 9000:8080 ${APP_NAME}:latest"
+                    sh "docker run -d --name ${APP_NAME} -p 9005:8080 ${APP_NAME}:latest"
                 }
             }
         }
