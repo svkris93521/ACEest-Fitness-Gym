@@ -56,6 +56,8 @@ pipeline {
                         ${APP_NAME}:latest \
                         bash -c "apt-get update && apt-get install -y xvfb && xvfb-run python3 -m pytest tests.py"
                     """
+                    sh "docker stop ${APP_NAME} || true"
+                    sh "docker rm ${APP_NAME} || true"
                     sh "docker run -d --name ${APP_NAME} -p 9000:8080 ${APP_NAME}:latest"
                 }
             }
@@ -64,7 +66,7 @@ pipeline {
 
     post {
         success {
-            echo "✅ PIPELINE SUCCESSFUL – ${APP_NAME}:${IMAGE_TAG} is ready for deployment."
+            echo "✅ PIPELINE SUCCESSFUL – ${APP_NAME}:${IMAGE_TAG} has been deployed on port 9090."
         }
         failure {
             echo "❌ PIPELINE FAILED – Check the Xvfb or Tkinter logs in Console Output."
