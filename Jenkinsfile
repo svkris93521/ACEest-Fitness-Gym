@@ -53,7 +53,6 @@ pipeline {
                 timeout(time: 3, unit: 'MINUTES') {
                     sh """
                         docker run --rm --init \
-                        -e DISPLAY=:99 \
                         ${APP_NAME}:latest \
                         python3 -m pytest tests.py
                     """

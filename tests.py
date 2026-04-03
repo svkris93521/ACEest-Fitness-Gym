@@ -6,6 +6,10 @@ from tkinter import ttk
 from unittest.mock import MagicMock, patch
 import sys
 
+import matplotlib
+matplotlib.use('Agg') # Must be called BEFORE importing pyplot
+
+
 # 1. MOCK EXTERNAL LIBRARIES & GUI DIALOGS BEFORE IMPORT
 # This prevents "no display" and "missing module" errors in CI/CD
 mock_mb = MagicMock()
