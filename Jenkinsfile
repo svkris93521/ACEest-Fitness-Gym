@@ -36,6 +36,12 @@ pipeline {
 
                 // --- STAGE 2: DOCKER ASSEMBLY (Replicating main.yml Job 2) ---
         stage('Docker Image Assembly') {
+            agent {
+                docker {
+                    image 'docker:latest'
+                    args '-v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
             steps {
                 echo "==> Building Docker image: ${APP_NAME}:${IMAGE_TAG}"
                 sh "docker build -t ${APP_NAME}:${IMAGE_TAG} -t ${APP_NAME}:latest ."
