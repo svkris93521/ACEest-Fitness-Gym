@@ -34,7 +34,7 @@ pipeline {
             }
         }
 
-        // --- STAGE 2: DOCKER ASSEMBLY (Replicating main.yml Job 2) ---
+                // --- STAGE 2: DOCKER ASSEMBLY (Replicating main.yml Job 2) ---
         stage('Docker Image Assembly') {
             steps {
                 echo "==> Building Docker image: ${APP_NAME}:${IMAGE_TAG}"
