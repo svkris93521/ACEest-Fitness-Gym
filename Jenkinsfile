@@ -51,11 +51,11 @@ pipeline {
                 echo "==> Running Pytest INSIDE the stable Docker container..."
                 // --init ensures zombie processes (like Xvfb) are cleaned up correctly
                 timeout(time: 3, unit: 'MINUTES') {
-                    sh '''
+                    sh """
                         docker run --rm --init \
                         ${APP_NAME}:latest \
                         python3 -m pytest tests.py
-                    '''
+                    """
                 }
             }
         }
