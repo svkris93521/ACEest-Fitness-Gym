@@ -18,19 +18,20 @@ pipeline {
         // --- STAGE 1: BUILD & LINT (Replicating main.yml Job 1) ---
         stage('Build & Lint') {
             steps {
-                echo "==> Preparing System and Dependencies..."
-                // Note: Requires one-time setup: sudo usermod -aG docker jenkins
-                sh "${PYTHON} -m pip install --upgrade pip"
-                sh "${PYTHON} -m pip install -r requirements.txt"
-                
+                echo "==> Bootstrapping pip and installing dependencies..."
+                // Use ensurepip to install pip if it's missing
+                sh "${PYTHON} -m ensurepip --default-pip"
+        
+                // Upgrade pip and install requirements
+                sh "${PYTHON} -m pip install --user --upgrade pip"
+                sh "${PYTHON} -m pip install --user -r requirements.txt"
+        
                 echo "==> Running Local Tests (Headless)..."
-                // timeout(time: 3, unit: 'MINUTES') matches 'timeout-minutes: 3'
                 timeout(time: 3, unit: 'MINUTES') {
-                    // xvfb-run allows Tkinter to 'render' without a physical screen
                     sh "xvfb-run ${PYTHON} -m pytest tests.py -v"
                 }
             }
-        }
+    }
 
         // --- STAGE 2: DOCKER ASSEMBLY (Replicating main.yml Job 2) ---
         stage('Docker Image Assembly') {
