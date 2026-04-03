@@ -24,12 +24,13 @@ pipeline {
             steps {
                 echo "==> Using credentials to run sudo commands..."
                 withCredentials([string(credentialsId: 'SUDO_PASS', variable: 'PASS')]) {
-                    // Use single quotes here to let the shell handle $PASS
-                    sh 'echo "$PASS" | sudo -S apt-get update'
-                    sh 'echo "$PASS" | sudo -S apt-get install -y xvfb python3-tk python3-pip'
+                    // Use double quotes but escape the $ with \
+                    sh "echo \"\$PASS\" | sudo -S apt-get update"
+                    sh "echo \"\$PASS\" | sudo -S apt-get install -y xvfb python3-tk python3-pip"
                 }
             }
         }
+
 
         stage('Install Python Dependencies') {
             steps {
