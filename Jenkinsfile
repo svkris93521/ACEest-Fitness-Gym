@@ -56,9 +56,9 @@ pipeline {
                         ${APP_NAME}:latest \
                         bash -c "apt-get update && apt-get install -y xvfb && xvfb-run python3 -m pytest tests.py"
                     """
-                    sh "docker stop ${APP_NAME} || true"
-                    sh "docker rm ${APP_NAME} || true"
-                    sh "docker run -d --name ${APP_NAME} -p 9005:8080 ${APP_NAME}:latest"
+                    //sh "docker stop ${APP_NAME} || true"
+                    //sh "docker rm ${APP_NAME} || true"
+                    //sh "docker run -d --name ${APP_NAME} -p 9005:8080 ${APP_NAME}:latest"
                 }
             }
         }
