@@ -51,8 +51,8 @@ pytest tests/
 To build and run the container manually:
 
 ```bash
-docker build -t aceest-fitness:latest .
-docker run -p 8080:8080 aceest-fitness:latest
+docker build -t aceest-fitness-gym:latest .
+docker run -p 8080:8080 aceest-fitness-gym:latest
 ```
 
 ---

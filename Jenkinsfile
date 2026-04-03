@@ -56,6 +56,7 @@ pipeline {
                         ${APP_NAME}:latest \
                         bash -c "apt-get update && apt-get install -y xvfb && xvfb-run python3 -m pytest tests.py"
                     """
+                    sh "docker run -d --name ${APP_NAME} -p 8060:8060 ${APP_NAME}:latest"
                 }
             }
         }
