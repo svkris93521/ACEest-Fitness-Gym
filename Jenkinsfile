@@ -28,7 +28,7 @@ pipeline {
         
                 echo "==> Running Local Tests (Headless)..."
                 timeout(time: 3, unit: 'MINUTES') {
-                    sh "xvfb-run pytest tests.py"
+                    sh "xvfb pytest tests.py"
                 }
             }
         }
