@@ -1,6 +1,5 @@
 // =========================================================================================
-// ACEest Fitness & Gym – Jenkins CI/CD Pipeline
-// Synchronized with main.yml (v3.2.4)
+// ACEest Fitness & Gym – Optimized Jenkins CI/CD (Headless Stable)
 // =========================================================================================
 
 pipeline {
@@ -8,54 +7,46 @@ pipeline {
 
     environment {
         APP_NAME    = 'aceest-fitness-gym'
-        PYTHON      = 'python3'
-        // Unique tag using Jenkins build number, similar to github.sha
         IMAGE_TAG   = "${env.BUILD_NUMBER}"
         DB_NAME     = "test_aceest_jenkins.db"
+        // Force Python to not write .pyc files and buffer output for cleaner logs
+        PYTHONDONTWRITEBYTECODE = 1
+        PYTHONUNBUFFERED = 1
     }
 
     stages {
-        // --- STAGE 1: BUILD & LINT (Replicating main.yml Job 1) ---
-        stage('Build & Lint') {
+        // --- STAGE 1: LOCAL VALIDATION ---
+        stage('Lint & Compile') {
             steps {
-                echo "==> Bootstrapping pip and installing dependencies..."
-                // Use ensurepip to install pip if it's missing
-                sh "${PYTHON} -m ensurepip --default-pip"
-        
-                // Upgrade pip and install requirements
-                sh "${PYTHON} -m pip install --user --upgrade pip"
-                sh "${PYTHON} -m pip install --user -r requirements.txt"
-        
-                echo "==> Running Local Tests (Headless)..."
-                timeout(time: 3, unit: 'MINUTES') {
-                    //sh "${PYTHON} -m pytest tests.py -v"
-                    sh "${PYTHON} -m py_compile app.py tests.py"
+                script {
+                    echo "==> Verifying Python environment..."
+                    sh "python3 -m py_compile app.py tests.py" [cite: 4]
                 }
             }
         }
 
-                // --- STAGE 2: DOCKER ASSEMBLY (Replicating main.yml Job 2) ---
+        // --- STAGE 2: DOCKER BUILD ---
         stage('Docker Image Assembly') {
             steps {
                 echo "==> Building Docker image: ${APP_NAME}:${IMAGE_TAG}"
-                sh "docker build -t ${APP_NAME}:${IMAGE_TAG} -t ${APP_NAME}:latest ."
-                
-                echo "==> Verifying Docker image..."
-                sh "docker images ${APP_NAME}"
+                // We build locally using the host's Docker daemon to avoid socket nesting issues
+                sh "docker build -t ${APP_NAME}:${IMAGE_TAG} -t ${APP_NAME}:latest ." [cite: 7]
             }
         }
 
-        // --- STAGE 3: AUTOMATED TESTING (Containerized) (Replicating main.yml Job 3) ---
+        // --- STAGE 3: HEADLESS AUTOMATED TESTING ---
         stage('Automated Testing (Container)') {
             steps {
-                echo "==> Running Pytest INSIDE the stable Docker container..."
-                // --init ensures zombie processes (like Xvfb) are cleaned up correctly
-                timeout(time: 3, unit: 'MINUTES') {
+                echo "==> Running Pytest INSIDE the container using Xvfb..."
+                timeout(time: 5, unit: 'MINUTES') {
+                    // 1. We pass the environment variable to tell Python we are headless
+                    // 2. We use 'xvfb-run' to wrap the test execution
                     sh """
                         docker run --rm --init \
+                        -e DISPLAY=:99 \
                         ${APP_NAME}:latest \
-                        python3 -m pytest tests.py
-                    """
+                        bash -c "apt-get update && apt-get install -xvfb -y && xvfb-run python3 -m pytest tests.py"
+                    """ [cite: 10]
                 }
             }
         }
@@ -63,14 +54,13 @@ pipeline {
 
     post {
         success {
-            echo "✅ PIPELINE SUCCESSFUL – ${APP_NAME}:${IMAGE_TAG} is stable."
+            echo "✅ PIPELINE SUCCESSFUL – ${APP_NAME}:${IMAGE_TAG} is ready for deployment." [cite: 12]
         }
         failure {
-            echo "❌ PIPELINE FAILED – Review Console Output for stage errors."
+            echo "❌ PIPELINE FAILED – Check the Xvfb or Tkinter logs in Console Output." [cite: 13]
         }
         always {
-            // Clean up the local test database file
-            sh "rm -f ${DB_NAME} || true"
+            sh "rm -f ${DB_NAME} || true" [cite: 13]
         }
     }
 }

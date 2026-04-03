@@ -5,6 +5,9 @@ FROM python:3.11-slim
 # These are required because they are not included in the standard Python image
 RUN apt-get update && apt-get install -y \
     python3-tk \
+    tcl-dev \
+    tk-dev \
+    libx11-dev \
     xvfb \
     x11-apps \
     && rm -rf /var/lib/apt/lists/*
