@@ -57,7 +57,7 @@ pipeline {
                         docker run --rm --init \
                         -e DISPLAY=:99 \
                         ${APP_NAME}:latest \
-                        ${PYTHON} -m pytest tests.py"
+                        ${PYTHON} -m pytest tests.py
                     """
                 }
             }
